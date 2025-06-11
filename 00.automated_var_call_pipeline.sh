@@ -1,9 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=variant_calling_pipeline
 #SBATCH --error=pipeline_master.err
-#SBATCH --nodes=1
-#SBATCH --cpus-per-task=32
-#SBATCH --mem=400G
 #SBATCH --qos=long
 #SBATCH --time=10-00:00:00
 
@@ -12,10 +9,10 @@ module load miniconda3/4.12.0
 
 # 1. BWA MEM + SAMTOOLS SORT (parallel per sample)
 bwa_jobids=()
-input_dir=" ~/Zymoproj/DEsamples/fung/fastq"
-output_dir=" ~/Zymoproj/DEsamples/fung/BAM"
-ref="ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
-mkdir -p "/$output_dir"
+input_dir="~/Zymoproj/DEsamples/fung/fastq"
+output_dir="~/Zymoproj/DEsamples/fung/BAM"
+ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+#mkdir -p "$output_dir"
 for forward_reads in "$input_dir"/*R1_001.fastq.gz; do
     sample_name=$(basename "$forward_reads" _R1_001.fastq.gz)
     reverse_reads="$input_dir/${sample_name}_R2_001.fastq.gz"
@@ -37,13 +34,13 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate samtools
 
-input_dir=" ~/Zymoproj/DEsamples/fung/fastq"
-output_dir=" ~/Zymoproj/DEsamples/fung/BAM"
-reference="ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+input_dir="~/Zymoproj/DEsamples/fung/fastq"
+output_dir="~/Zymoproj/DEsamples/fung/BAM"
+ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 
-bwa mem -t 32 "/$reference" "/$input_dir/${sample_name}_R1_001.fastq.gz" "/$input_dir/${sample_name}_R2_001.fastq.gz" > "/$output_dir/${sample_name}.sam"
-samtools sort -@ 8 -o "/$output_dir/${sample_name}.bam" "/$output_dir/${sample_name}.sam"
-rm "/$output_dir/${sample_name}.sam"
+bwa mem -t 32 "$ref" "$input_dir/${sample_name}_R1_001.fastq.gz" "$input_dir/${sample_name}_R2_001.fastq.gz" > "$output_dir/${sample_name}.sam"
+samtools sort -@ 8 -o "$output_dir/${sample_name}.bam" "$output_dir/${sample_name}.sam"
+rm "$output_dir/${sample_name}.sam"
 EOF
 )
     bwa_jobids+=($(echo $jid | awk '{print $4}'))
@@ -65,22 +62,22 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate picard
 
-BamFolder=" ~/Zymoproj/DEsamples/fung/BAM/"
-BamRGFolder=" ~/Zymoproj/DEsamples/fung/BAM/RG"
+BamFolder="~/Zymoproj/DEsamples/fung/BAM/"
+BamRGFolder="~/Zymoproj/DEsamples/fung/BAM/RG"
 project="Zt_DE_2024"
 mkdir -p "$BamRGFolder"
 
 for bamfile in $BamFolder/*.bam; do
     sample=$(basename "$bamfile" .bam)
-    picard AddOrReplaceReadGroups /
-        I="$bamfile" /
-        O="$BamRGFolder/$sample.bam" /
-        SORT_ORDER=coordinate /
-        RGID="$sample" /
-        RGLB=Zt_DE_2024 /
-        RGPL=illumina /
-        RGSM="$sample" /
-        RGPU="$project" /
+    picard AddOrReplaceReadGroups \
+        I="$bamfile" \
+        O="$BamRGFolder/$sample.bam" \
+        SORT_ORDER=coordinate \
+        RGID="$sample" \
+        RGLB=Zt_DE_2024 \
+        RGPL=illumina \
+        RGSM="$sample" \
+        RGPU="$project" \
         CREATE_INDEX=True
 done
 EOF
@@ -101,16 +98,16 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate picard
 
-BamRGFolder=" ~/Zymoproj/DEsamples/fung/BAM/RG"
-BamMDFolder=" ~/Zymoproj/DEsamples/fung/BAM/MD"
+BamRGFolder="~/Zymoproj/DEsamples/fung/BAM/RG"
+BamMDFolder="~/Zymoproj/DEsamples/fung/BAM/MD"
 mkdir -p "$BamMDFolder"
 
 for bamFile in $BamRGFolder/*.bam; do
     Sample=$(basename "$bamFile" .bam)
-    picard MarkDuplicates /
-        INPUT="$bamFile" /
-        OUTPUT="$BamMDFolder/$Sample.DuplMark.bam" /
-        METRICS_FILE="$BamMDFolder/metrics_$Sample.txt" /
+    picard MarkDuplicates \
+        INPUT="$bamFile" \
+        OUTPUT="$BamMDFolder/$Sample.DuplMark.bam" \
+        METRICS_FILE="$BamMDFolder/metrics_$Sample.txt" \
         CREATE_INDEX=true
 done
 EOF
@@ -131,8 +128,8 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate samtools
 
-bam_dir=" ~/Zymoproj/DEsamples/fung/BAM/MD"
-output_dir=" ~/Zymoproj/DEsamples/fung/covstats"
+bam_dir="~/Zymoproj/DEsamples/fung/BAM/MD"
+output_dir="~/Zymoproj/DEsamples/fung/covstats"
 mkdir -p "$output_dir"
 
 for bamfile in "$bam_dir"/*.DuplMark.bam; do
@@ -187,9 +184,9 @@ module load miniconda3/4.12.0
 conda activate var_call
 
 REF=ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa
-BAMFolder=" ~/Zymoproj/DEsamples/fung/BAM/MD"
-gVCFFolder=" ~/Zymoproj/DEsamples/fung/gVCF/"
-covstats=" ~/Zymoproj/DEsamples/fung/covstats"
+BAMFolder="~/Zymoproj/DEsamples/fung/BAM/MD"
+gVCFFolder="~/Zymoproj/DEsamples/fung/gVCF/"
+covstats="~/Zymoproj/DEsamples/fung/covstats"
 mkdir -p "$gVCFFolder"
 
 while read sample; do
@@ -216,17 +213,17 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-gVCFFolder=" ~/Zymoproj/DEsamples/fung/gVCF"
-ref=" ~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+"
+gVCFFolder="~/Zymoproj/DEsamples/fung/gVCF"
+ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 sites=("DO" "FU" "KA" "KO" "RA")
 
 for site in "${sites[@]}"; do
     for gvcf in $gVCFFolder/${site}*.g.vcf; do
         [ -e "$gvcf" ] || continue
         sorted_gvcf="${gvcf%.g.vcf}_sorted.g.vcf"
-        gatk SortVcf /
-            -I "$gvcf" /
-            -O "$sorted_gvcf" /
+        gatk SortVcf \
+            -I "$gvcf" \
+            -O "$sorted_gvcf" \
             --SEQUENCE_DICTIONARY "$ref".dict
     done
 done
@@ -248,8 +245,8 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-gVCFFolder=" ~/Zymoproj/DEsamples/fung/gVCF"
-ref=" ~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+gVCFFolder="~/Zymoproj/DEsamples/fung/gVCF"
+ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 sites=("DO" "FU" "KA" "KO" "RA")
 
 for site in "${sites[@]}"; do
@@ -258,9 +255,9 @@ for site in "${sites[@]}"; do
         echo "No sorted gVCFs found for $site"
         continue
     fi
-    gatk CombineGVCFs /
-        -R "$ref" /
-        $(for gvcf in "${sorted_gvcfs[@]}"; do echo -n "-V $gvcf "; done) /
+    gatk CombineGVCFs \
+        -R "$ref" \
+        $(for gvcf in "${sorted_gvcfs[@]}"; do echo -n "-V $gvcf "; done) \
         -O "$gVCFFolder/${site}.g.vcf"
 done
 EOF
@@ -281,16 +278,16 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-gVCFFolder=" ~/Zymoproj/DEsamples/fung/gVCF"
-ref=" ~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+"
+gVCFFolder="~/Zymoproj/DEsamples/fung/gVCF"
+ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 sites=("DO" "FU" "KA" "KO" "RA")
 
 for site in "${sites[@]}"; do
     merged_gvcf="$gVCFFolder/${site}.g.vcf"
     sorted_merged_gvcf="$gVCFFolder/${site}_merged_sorted.g.vcf"
-    gatk SortVcf /
-        -I "$merged_gvcf" /
-        -O "$sorted_merged_gvcf" /
+    gatk SortVcf \
+        -I "$merged_gvcf" \
+        -O "$sorted_merged_gvcf" \
         --SEQUENCE_DICTIONARY "$ref".dict
 done
 EOF
@@ -312,8 +309,8 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-vcf_path=" ~/Zymoproj/DEsamples/fung/gVCF"
-ref=" ~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+vcf_path="~/Zymoproj/DEsamples/fung/gVCF"
+ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 sites=("DO" "FU" "KA" "KO" "RA")
 
 for site in "${sites[@]}"; do
@@ -323,9 +320,9 @@ for site in "${sites[@]}"; do
         echo "Sorted merged gVCF file for site $site does not exist. Skipping..."
         continue
     fi
-    gatk --java-options "-Xmx400G" GenotypeGVCFs /
-       -V "$sorted_merged_gvcf" /
-       -O "$output_vcf" /
+    gatk --java-options "-Xmx400G" GenotypeGVCFs \
+       -V "$sorted_merged_gvcf" \
+       -O "$output_vcf" \
        -R "$ref"
     echo "Genotyping complete for site $site."
 done
@@ -349,16 +346,16 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-gvcf_path=" ~/Zymoproj/DEsamples/fung/gVCF"
-vcf_path=" ~/Zymoproj/DEsamples/fung/VCF"
-ref=" ~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+gvcf_path="~/Zymoproj/DEsamples/fung/gVCF"
+vcf_path="~/Zymoproj/DEsamples/fung/VCF"
+ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 mkdir -p "$vcf_path"
 for vcf_file in $gvcf_path/*genotyped.vcf; do
     base_name=$(basename "$vcf_file" .genotyped.vcf)
-    gatk --java-options "-Xmx300G -XX:+UseParallelGC -XX:ParallelGCThreads=32" SelectVariants /
-        -R $ref /
-        -V "$vcf_file" /
-        --select-type-to-include SNP /
+    gatk --java-options "-Xmx300G -XX:+UseParallelGC -XX:ParallelGCThreads=32" SelectVariants \
+        -R $ref \
+        -V "$vcf_file" \
+        --select-type-to-include SNP \
         -O "$vcf_path/${base_name}.SNP.vcf"
 done
 EOF
@@ -379,24 +376,24 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-vcf_path=" ~/Zymoproj/DEsamples/fung/VCF"
-ref=" ~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+vcf_path="~/Zymoproj/DEsamples/fung/VCF"
+ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 
 for snp_vcf in $vcf_path/*.SNP.vcf; do
     base_name=$(basename "$snp_vcf" .SNP.vcf)
-    gatk --java-options "-Xmx200G -XX:+UseParallelGC -XX:ParallelGCThreads=32" VariantFiltration /
-        -R $ref /
-        -V "$snp_vcf" /
-        --filter-name "MQ" --filter-expression "MQ < 20.0" /
-        --filter-name "QDFilter" --filter-expression "QD < 5.0" /
-        --filter-name "QUAL30" --filter-expression "QUAL < 30.0" /
-        --filter-name "SOR" --filter-expression "SOR > 3.0" /
-        --filter-name "FS" --filter-expression "FS > 60.0" /
-        --filter-name "Low_depth3" --filter-expression "DP < 10" /
-        --filter-name "ReadPosRankSum_lower" --filter-expression "ReadPosRankSum < -2.0" /
-        --filter-name "ReadPosRankSum_upper" --filter-expression "ReadPosRankSum > 2.0" /
-        --filter-name "MQRankSum_lower" --filter-expression "MQRankSum < -2.0" /
-        --filter-name "MQRankSum_upper" --filter-expression "MQRankSum > 2.0" /
+    gatk --java-options "-Xmx200G -XX:+UseParallelGC -XX:ParallelGCThreads=32" VariantFiltration \
+        -R $ref \
+        -V "$snp_vcf" \
+        --filter-name "MQ" --filter-expression "MQ < 20.0" \
+        --filter-name "QDFilter" --filter-expression "QD < 5.0" \
+        --filter-name "QUAL30" --filter-expression "QUAL < 30.0" \
+        --filter-name "SOR" --filter-expression "SOR > 3.0" \
+        --filter-name "FS" --filter-expression "FS > 60.0" \
+        --filter-name "Low_depth3" --filter-expression "DP < 10" \
+        --filter-name "ReadPosRankSum_lower" --filter-expression "ReadPosRankSum < -2.0" \
+        --filter-name "ReadPosRankSum_upper" --filter-expression "ReadPosRankSum > 2.0" \
+        --filter-name "MQRankSum_lower" --filter-expression "MQRankSum < -2.0" \
+        --filter-name "MQRankSum_upper" --filter-expression "MQRankSum > 2.0" \
         -O "$vcf_path/${base_name}.SNP.corrected.qualityfilter.vcf"
 done
 EOF
@@ -417,15 +414,15 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-vcf_path=" ~/Zymoproj/DEsamples/fung/VCF"
-ref=" ~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+vcf_path="~/Zymoproj/DEsamples/fung/VCF"
+ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 
 for filtered_vcf in $vcf_path/*.SNP.corrected.qualityfilter.vcf; do
     base_name=$(basename "$filtered_vcf" .SNP.corrected.qualityfilter.vcf)
-    gatk SelectVariants --java-options "-Xmx50G -XX:+UseParallelGC -XX:ParallelGCThreads=32" /
-        -R $ref /
-        -V "$filtered_vcf" /
-        -O "$vcf_path/${base_name}.SNP.corrected.qualityfilter.excl.vcf" /
+    gatk SelectVariants --java-options "-Xmx50G -XX:+UseParallelGC -XX:ParallelGCThreads=32" \
+        -R $ref \
+        -V "$filtered_vcf" \
+        -O "$vcf_path/${base_name}.SNP.corrected.qualityfilter.excl.vcf" \
         --exclude-filtered true
 done
 EOF
@@ -445,7 +442,7 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate samtools
 
-folder=" ~/Zymoproj/DEsamples/fung/VCF"
+folder="~/Zymoproj/DEsamples/fung/VCF"
 german_fields=("DO" "FU" "KA" "KO" "RA")
 
 vcf_files=(
@@ -463,12 +460,12 @@ for vcf in "${vcf_files[@]}"; do
     filename_no_ext=$(basename "$vcf" .vcf)
     filename_base="${filename_no_ext}"
 
-    vcftools --vcf "$vcf" /
-      --recode --recode-INFO-all /
-      --max-missing 0.8 /
-      --mac 1 /
-      --remove-filtered-all --remove-indels /
-      --min-alleles 2 --max-alleles 2 /
+    vcftools --vcf "$vcf" \
+      --recode --recode-INFO-all \
+      --max-missing 0.8 \
+      --mac 1 \
+      --remove-filtered-all --remove-indels \
+      --min-alleles 2 --max-alleles 2 \
       --out "${folder}/${filename_base}.max-m-80.biallelic-only.mac1"
 
     field_code=$(echo "$filename_base" | sed -E 's/^Zt_([A-Z]{2}).*//1/')
@@ -483,8 +480,8 @@ for vcf in "${vcf_files[@]}"; do
         out_prefix="${folder}/Zt_${field_code}${sub_part}_strict"
     fi
 
-    plink --vcf "${folder}/${filename_base}.max-m-80.biallelic-only.mac1.recode.vcf" /
-      --make-bed --freq --missing /
+    plink --vcf "${folder}/${filename_base}.max-m-80.biallelic-only.mac1.recode.vcf" \
+      --make-bed --freq --missing \
       --out "$out_prefix"
 done
 
@@ -498,17 +495,17 @@ bcftools merge "${vcf_list[@]}" -Oz -o "${folder}/Zt_WW_all_strict.vcf.gz"
 tabix -p vcf "${folder}/Zt_WW_all_strict.vcf.gz"
 
 grep -v -E '^(ST16|ORE15)' $folder/sample_ids_WWstrict.txt > $folder/ids_EU_strict.txt
-bcftools view /
-  -S $folder/ids_EU_strict.txt /
-  -i 'AC>1' /
-  $folder/Zt_WW_all_strict.vcf.gz /
+bcftools view \
+  -S $folder/ids_EU_strict.txt \
+  -i 'AC>1' \
+  $folder/Zt_WW_all_strict.vcf.gz \
   -O z -o $folder/Zt_EU_all_strict.vcf.gz && bcftools index -f $folder/Zt_EU_all_strict.vcf.gz
 
 grep -v -E '^(ST16|ORE15|Rose|Rag|ADAS)' $folder/sample_ids_WWstrict.txt > $folder/ids_DE_strict.txt
-bcftools view /
-  -S $folder/ids_DE_strict.txt /
-  -i 'AC>1' /
-  $folder/Zt_WW_all_strict.vcf.gz /
+bcftools view \
+  -S $folder/ids_DE_strict.txt \
+  -i 'AC>1' \
+  $folder/Zt_WW_all_strict.vcf.gz \
   -O z -o $folder/Zt_DE_all_strict.vcf.gz && bcftools index -f $folder/Zt_DE_all_strict.vcf.gz
 EOF
 )
