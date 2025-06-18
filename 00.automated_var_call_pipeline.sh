@@ -11,9 +11,9 @@ module load miniconda3/4.12.0
 
 # 1. BWA MEM + SAMTOOLS SORT (parallel per sample)
 bwa_jobids=()
-input_dir="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/fastq"
-output_dir="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/BAM"
-ref="/work_beegfs/suaph296/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+input_dir="~/Zymoproj/DEsamples/fung/fastq"
+output_dir="~/Zymoproj/DEsamples/fung/BAM"
+ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 #mkdir -p "$output_dir"
 for forward_reads in "$input_dir"/*R1_001.fastq.gz; do
     sample_name=$(basename "$forward_reads" _R1_001.fastq.gz)
@@ -37,9 +37,9 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate samtools
 echo "Processing sample: ${sample_name}"
-input_dir="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/fastq"
-output_dir="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/BAM"
-ref="/work_beegfs/suaph296/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+input_dir="~/Zymoproj/DEsamples/fung/fastq"
+output_dir="~/Zymoproj/DEsamples/fung/BAM"
+ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 
 bwa mem -t 8 "$ref" "$input_dir/${sample_name}_R1_001.fastq.gz" "$input_dir/${sample_name}_R2_001.fastq.gz" > "$output_dir/${sample_name}.sam"
 samtools sort -@ 8 -o "$output_dir/${sample_name}.bam" "$output_dir/${sample_name}.sam"
@@ -65,8 +65,8 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate picard
 
-BamFolder="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/BAM"
-BamRGFolder="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/BAM/RG"
+BamFolder="~/Zymoproj/DEsamples/fung/BAM"
+BamRGFolder="~/Zymoproj/DEsamples/fung/BAM/RG"
 project="Zt_DE_2024"
 mkdir -p "$BamRGFolder"
 
@@ -102,8 +102,8 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate picard
 
-BamRGFolder="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/BAM/RG"
-BamMDFolder="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/BAM/MD"
+BamRGFolder="~/Zymoproj/DEsamples/fung/BAM/RG"
+BamMDFolder="~/Zymoproj/DEsamples/fung/BAM/MD"
 mkdir -p "$BamMDFolder"
 
 for bamFile in $BamRGFolder/*.bam; do
@@ -133,8 +133,8 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate samtools
 
-bam_dir="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/BAM/MD"
-output_dir="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/covstats"
+bam_dir="~/Zymoproj/DEsamples/fung/BAM/MD"
+output_dir="~/Zymoproj/DEsamples/fung/covstats"
 mkdir -p "$output_dir"
 
 for bamfile in "$bam_dir"/*.DuplMark.bam; do
@@ -187,10 +187,10 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-REF="/work_beegfs/suaph296/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
-BAMFolder="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/BAM/MD"
-gVCFFolder="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/gVCF/"
-covstats="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/covstats"
+REF="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+BAMFolder="~/Zymoproj/DEsamples/fung/BAM/MD"
+gVCFFolder="~/Zymoproj/DEsamples/fung/gVCF/"
+covstats="~/Zymoproj/DEsamples/fung/covstats"
 mkdir -p "$gVCFFolder"
 
 while read sample; do
@@ -255,8 +255,8 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-gVCFFolder="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/gVCF"
-ref="/work_beegfs/suaph296/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+gVCFFolder="~/Zymoproj/DEsamples/fung/gVCF"
+ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 sites=("DO" "FU" "KA" "KO" "RA")
 
 for site in "${sites[@]}"; do
@@ -287,8 +287,8 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-gVCFFolder="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/gVCF"
-ref="/work_beegfs/suaph296/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+gVCFFolder="~/Zymoproj/DEsamples/fung/gVCF"
+ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 sites=("DO" "FU" "KA" "KO" "RA")
 
 for site in "${sites[@]}"; do
@@ -320,8 +320,8 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-gVCFFolder="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/gVCF"
-ref="/work_beegfs/suaph296/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+gVCFFolder="~/Zymoproj/DEsamples/fung/gVCF"
+ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 sites=("DO" "FU" "KA" "KO" "RA")
 
 for site in "${sites[@]}"; do
@@ -353,8 +353,8 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-vcf_path="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/gVCF"
-ref="/work_beegfs/suaph296/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+vcf_path="~/Zymoproj/DEsamples/fung/gVCF"
+ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 sites=("DO" "FU" "KA" "KO" "RA")
 
 for site in "${sites[@]}"; do
@@ -390,9 +390,9 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-gvcf_path="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/gVCF"
-vcf_path="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/VCF"
-ref="/work_beegfs/suaph296/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+gvcf_path="~/Zymoproj/DEsamples/fung/gVCF"
+vcf_path="~/Zymoproj/DEsamples/fung/VCF"
+ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 mkdir -p "$vcf_path"
 for vcf_file in $gvcf_path/*genotyped.vcf; do
     base_name=$(basename "$vcf_file" .genotyped.vcf)
@@ -420,8 +420,8 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-vcf_path="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/VCF"
-ref="/work_beegfs/suaph296/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+vcf_path="~/Zymoproj/DEsamples/fung/VCF"
+ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 
 for snp_vcf in $vcf_path/*.SNP.vcf; do
     base_name=$(basename "$snp_vcf" .SNP.vcf)
@@ -458,8 +458,8 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-vcf_path="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/VCF"
-ref="/work_beegfs/suaph296/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+vcf_path="~/Zymoproj/DEsamples/fung/VCF"
+ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 
 for filtered_vcf in $vcf_path/*.SNP.corrected.qualityfilter.vcf; do
     base_name=$(basename "$filtered_vcf" .SNP.corrected.qualityfilter.vcf)
@@ -486,7 +486,7 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate samtools
 
-folder="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/VCF"
+folder="~/Zymoproj/DEsamples/fung/VCF"
 german_fields=("DO" "FU" "KA" "KO" "RA")
 
 vcf_files=(
