@@ -1,7 +1,9 @@
 #!/bin/bash
 #SBATCH --job-name=variant_calling_pipeline
-#SBATCH --error=pipeline_master.err
 #SBATCH --qos=long
+#SBATCH --out=pipeline_master_%j%.out
+#SBATCH --error=pipeline_master_%j%.err
+#SBATCH --nodes=1
 #SBATCH --time=10-00:00:00
 
 module load gcc12-env/12.1.0
@@ -9,9 +11,9 @@ module load miniconda3/4.12.0
 
 # 1. BWA MEM + SAMTOOLS SORT (parallel per sample)
 bwa_jobids=()
-input_dir="~/Zymoproj/DEsamples/fung/fastq"
-output_dir="~/Zymoproj/DEsamples/fung/BAM"
-ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+input_dir="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/fastq"
+output_dir="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/BAM"
+ref="/work_beegfs/suaph296/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 #mkdir -p "$output_dir"
 for forward_reads in "$input_dir"/*R1_001.fastq.gz; do
     sample_name=$(basename "$forward_reads" _R1_001.fastq.gz)
@@ -20,37 +22,38 @@ for forward_reads in "$input_dir"/*R1_001.fastq.gz; do
     sorted_bam="$output_dir/${sample_name}.bam"
 
     jid=$(sbatch <<EOF
-#!/bin/bash
-#SBATCH --job-name=bwa_${sample_name}
-#SBATCH --error=bwa_${sample_name}.err
-#SBATCH --nodes=1
-#SBATCH --cpus-per-task=32
-#SBATCH --mem=100G
-#SBATCH --time=24:00:00
-#SBATCH --mail-type=FAIL,END
-#SBATCH --mail-user=a.tobherre@phytomed.uni-kiel.de
+# #!/bin/bash
+# #SBATCH --job-name=bwa_${sample_name}
+# #SBATCH --output=bwa_${sample_name}.out
+# #SBATCH --error=bwa_${sample_name}.err
+# #SBATCH --nodes=1
+# #SBATCH --cpus-per-task=16
+# #SBATCH --mem=950G
+# #SBATCH --time=24:00:00
+# #SBATCH --mail-type=FAIL,END
+# #SBATCH --mail-user=a.tobherre@phytomed.uni-kiel.de
 
 module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate samtools
+echo "Processing sample: ${sample_name}"
+input_dir="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/fastq"
+output_dir="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/BAM"
+ref="/work_beegfs/suaph296/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 
-input_dir="~/Zymoproj/DEsamples/fung/fastq"
-output_dir="~/Zymoproj/DEsamples/fung/BAM"
-ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
-
-bwa mem -t 32 "$ref" "$input_dir/${sample_name}_R1_001.fastq.gz" "$input_dir/${sample_name}_R2_001.fastq.gz" > "$output_dir/${sample_name}.sam"
+bwa mem -t 8 "$ref" "$input_dir/${sample_name}_R1_001.fastq.gz" "$input_dir/${sample_name}_R2_001.fastq.gz" > "$output_dir/${sample_name}.sam"
 samtools sort -@ 8 -o "$output_dir/${sample_name}.bam" "$output_dir/${sample_name}.sam"
 rm "$output_dir/${sample_name}.sam"
 EOF
 )
     bwa_jobids+=($(echo $jid | awk '{print $4}'))
 done
-# Wait for all BWA jobs to finish before starting the next step
+# # Wait for all BWA jobs to finish before starting the next step
 jid1=$(IFS=:; echo "${bwa_jobids[*]}")
-# 2. PICARD ADD OR REPLACE READ GROUPS
+# # 2. PICARD ADD OR REPLACE READ GROUPS
 jid2=$(sbatch --dependency=afterok:$jid1 <<'EOF'
 #!/bin/bash
-set -euo pipefail
+#set -euo pipefail
 #SBATCH --job-name=AddRGDE
 #SBATCH --error=AddRGDE.err
 #SBATCH --nodes=1
@@ -62,12 +65,13 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate picard
 
-BamFolder="~/Zymoproj/DEsamples/fung/BAM/"
-BamRGFolder="~/Zymoproj/DEsamples/fung/BAM/RG"
+BamFolder="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/BAM"
+BamRGFolder="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/BAM/RG"
 project="Zt_DE_2024"
 mkdir -p "$BamRGFolder"
 
 for bamfile in $BamFolder/*.bam; do
+    echo "Processing $bamfile"
     sample=$(basename "$bamfile" .bam)
     picard AddOrReplaceReadGroups \
         I="$bamfile" \
@@ -81,9 +85,9 @@ for bamfile in $BamFolder/*.bam; do
         CREATE_INDEX=True
 done
 EOF
-)
+#)
 jid2=$(echo $jid2 | awk '{print $4}')
-# 3. PICARD MARK DUPLICATES
+# # 3. PICARD MARK DUPLICATES
 jid3=$(sbatch --dependency=afterok:$jid2 <<'EOF'
 #!/bin/bash
 set -euo pipefail
@@ -98,17 +102,18 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate picard
 
-BamRGFolder="~/Zymoproj/DEsamples/fung/BAM/RG"
-BamMDFolder="~/Zymoproj/DEsamples/fung/BAM/MD"
+BamRGFolder="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/BAM/RG"
+BamMDFolder="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/BAM/MD"
 mkdir -p "$BamMDFolder"
 
 for bamFile in $BamRGFolder/*.bam; do
-    Sample=$(basename "$bamFile" .bam)
-    picard MarkDuplicates \
-        INPUT="$bamFile" \
-        OUTPUT="$BamMDFolder/$Sample.DuplMark.bam" \
-        METRICS_FILE="$BamMDFolder/metrics_$Sample.txt" \
-        CREATE_INDEX=true
+   echo "Processing $bamFile"
+   Sample=$(basename "$bamFile" .bam)
+   picard MarkDuplicates \
+       INPUT="$bamFile" \
+       OUTPUT="$BamMDFolder/$Sample.DuplMark.bam" \
+       METRICS_FILE="$BamMDFolder/metrics_$Sample.txt" \
+       CREATE_INDEX=true
 done
 EOF
 )
@@ -116,7 +121,7 @@ jid3=$(echo $jid3 | awk '{print $4}')
 # 4. SAMTOOLS IDXSTATS & DEPTH
 jid4=$(sbatch --dependency=afterok:$jid3 <<'EOF'
 #!/bin/bash
-set -euo pipefail
+#set -euo pipefail
 #SBATCH --job-name=checkmaprtDE
 #SBATCH --error=checkmaprtDE.err
 #SBATCH --nodes=1
@@ -128,42 +133,44 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate samtools
 
-bam_dir="~/Zymoproj/DEsamples/fung/BAM/MD"
-output_dir="~/Zymoproj/DEsamples/fung/covstats"
+bam_dir="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/BAM/MD"
+output_dir="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/covstats"
 mkdir -p "$output_dir"
 
 for bamfile in "$bam_dir"/*.DuplMark.bam; do
-    filename=$(basename "$bamfile" .bam)
-    output_file="$output_dir/$filename.perchrmap.txt"
-    samtools idxstats "$bamfile" | awk -v filename="$filename" '{total[$1]+=$3+$4; mapped[$1]+=$3} END {print "Sample/tChromosome/tMapped Reads/tTotal Reads/tMapping Rate"; for(i in total) printf "%s/t%s/t%d/t%d/t%.2f%%/n", filename, i, mapped[i], total[i], (mapped[i]/total[i])*100;}' > "$output_file"
+echo "Processing sample: ${bamfile}"
+   filename=$(basename "$bamfile" .bam)
+   output_file="$output_dir/$filename.perchrmap.txt"
+   samtools idxstats "$bamfile" | awk -v filename="$filename" 'BEGIN {print "Sample\tChromosome\tMapped Reads\tTotal Reads\tMapping Rate"} {total[$1]+=$3+$4; mapped[$1]+=$3} END {for(i in total) printf "%s\t%s\t%d\t%d\t%.2f%%\n", filename, i, mapped[i], total[i], (mapped[i]/total[i])*100;}' > "$output_file"
 done
 cat "$output_dir"/*.perchrmap.txt > "$output_dir/all_per_chr_mapping_rateDE.txt"
 
 for bam_file in "$bam_dir"/*.DuplMark.bam; do
-    filename=$(basename "$bam_file" .bam)
-    output_file="$output_dir/$filename.coverage.txt"
-    samtools depth -a "$bam_file" | awk -v filename="$filename" '{sum[$1]+=$3; count[$1]++} END {for (chr in sum) print filename, chr, sum[chr]/count[chr]}' > "$output_file"
+echo "Processing sample: ${bamfile}"
+   filename=$(basename "$bam_file" .bam)
+   output_file="$output_dir/$filename.coverage.txt"
+   samtools depth -a "$bam_file" | awk -v filename="$filename" '{sum[$1]+=$3; count[$1]++} END {for (chr in sum) print filename, chr, sum[chr]/count[chr]}' > "$output_file"
 done
 cat "$output_dir"/*.coverage.txt > "$output_dir/all_per_chr_coverageDE.txt"
-# Filter BAMs: only keep samples where all core chromosomes 1-13 have mean depth >= 10
+Filter BAMs: only keep samples where all core chromosomes 1-13 have mean depth >= 10
 good_bams="$output_dir/good_bams.txt"
 > "$good_bams"
 for covfile in "$output_dir"/*.coverage.txt; do
-    fail=0
-    while read -r sample chr depth; do
-        # Only check chromosomes 1-13
-        if [[ "$chr" =/work_beegfs/suaph296 ^([1-9]|1[0-3])$ ]]; then
-            if (( $(echo "$depth < 10" | bc -l) )); then
-                fail=1
-                break
-            fi
-        fi
-    done < "$covfile"
-    if [[ $fail -eq 0 ]]; then
-        # Only add sample if all core chromosomes have depth >= 10
-        sample=$(basename "$covfile" .coverage.txt)
-        echo "$sample" >> "$good_bams"
-    fi
+   fail=0
+   while read -r sample chr depth; do
+       # Only check chromosomes 1-13
+       if [[ "$chr" =~ ^([1-9]|1[0-3])$ ]]; then
+           if (( $(echo "$depth < 10" | bc -l) )); then
+               fail=1
+               break
+           fi
+       fi
+   done < "$covfile"
+   if [[ $fail -eq 0 ]]; then
+       # Only add sample if all core chromosomes have depth >= 10
+       sample=$(basename "$covfile" .coverage.txt)
+       echo "$sample" >> "$good_bams"
+   fi
 done
 EOF
 )
@@ -171,31 +178,66 @@ jid4=$(echo $jid4 | awk '{print $4}')
 # 5. GATK HAPLOTYPECALLER (per sample, only for good BAMs)
 jid5=$(sbatch --dependency=afterok:$jid4 <<'EOF'
 #!/bin/bash
-set -euo pipefail
+#set -euo pipefail
 #SBATCH --job-name=HaplotypeCaller_DE
 #SBATCH --error=HaplotypeCaller_DE.err
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=16
-#SBATCH --mem=200G
-#SBATCH --time=08:00:00
 
 module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-REF=ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa
-BAMFolder="~/Zymoproj/DEsamples/fung/BAM/MD"
-gVCFFolder="~/Zymoproj/DEsamples/fung/gVCF/"
-covstats="~/Zymoproj/DEsamples/fung/covstats"
+REF="/work_beegfs/suaph296/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+BAMFolder="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/BAM/MD"
+gVCFFolder="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/gVCF/"
+covstats="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/covstats"
 mkdir -p "$gVCFFolder"
 
 while read sample; do
-    bamfile="$BAMFolder/${sample}.DuplMark.bam"
+    bamfile="$BAMFolder/${sample}.bam"
     if [[ -f "$bamfile" ]]; then
-        gatk --java-options "-Xmx400G" HaplotypeCaller -R Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa -ploidy 1 --emit-ref-confidence GVCF -I "$bamfile" -O "$gVCFFolder/${sample}.g.vcf"
+        sbatch <<EOF
+#!/bin/bash
+#SBATCH --job-name=HapCall_${sample}
+#SBATCH --output=${gVCFFolder}/${sample}.hapcall.out
+#SBATCH --error=${gVCFFolder}/${sample}.hapcall.err
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=200G
+#SBATCH --time=12:00:00
+
+module load gcc12-env/12.1.0
+module load miniconda3/4.12.0
+conda activate var_call
+
+gatk --java-options "-Xmx200G" HaplotypeCaller \
+    -R "$REF" \
+    -ploidy 1 \
+    --emit-ref-confidence GVCF \
+    -I "$bamfile" \
+    -O "${gVCFFolder}/${sample}.g.vcf"
+EOF
+    else
+        echo "BAM file not found for $sample: $bamfile"
     fi
 done < "$covstats/good_bams.txt"
+
+
+module load gcc12-env/12.1.0
+module load miniconda3/4.12.0
+conda activate var_call
+
+gatk --java-options "-Xmx200G" HaplotypeCaller \
+    -R "$REF" \
+    -ploidy 1 \
+    --emit-ref-confidence GVCF \
+    -I "$bamfile" \
+    -O "${gVCFFolder}/${sample}.g.vcf"
 EOF
+    else
+        echo "BAM file not found for $sample: $bamfile"
+    fi
+done < "$covstats/good_bams.txt"
 )
 jid5=$(echo $jid5 | awk '{print $4}')
 # 5b. SORT INDIVIDUAL gVCF FILES PER FIELD
@@ -213,8 +255,8 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-gVCFFolder="~/Zymoproj/DEsamples/fung/gVCF"
-ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+gVCFFolder="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/gVCF"
+ref="/work_beegfs/suaph296/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 sites=("DO" "FU" "KA" "KO" "RA")
 
 for site in "${sites[@]}"; do
@@ -245,8 +287,8 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-gVCFFolder="~/Zymoproj/DEsamples/fung/gVCF"
-ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+gVCFFolder="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/gVCF"
+ref="/work_beegfs/suaph296/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 sites=("DO" "FU" "KA" "KO" "RA")
 
 for site in "${sites[@]}"; do
@@ -278,17 +320,19 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-gVCFFolder="~/Zymoproj/DEsamples/fung/gVCF"
-ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+gVCFFolder="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/gVCF"
+ref="/work_beegfs/suaph296/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 sites=("DO" "FU" "KA" "KO" "RA")
 
 for site in "${sites[@]}"; do
-    merged_gvcf="$gVCFFolder/${site}.g.vcf"
-    sorted_merged_gvcf="$gVCFFolder/${site}_merged_sorted.g.vcf"
-    gatk SortVcf \
-        -I "$merged_gvcf" \
-        -O "$sorted_merged_gvcf" \
-        --SEQUENCE_DICTIONARY "$ref".dict
+    merged="$gVCFFolder/${site}.g.vcf"
+    sorted_merged="$gVCFFolder/${site}_merged_sorted.g.vcf"
+    if [ -f "$merged" ]; then
+        echo "Sorting merged gVCF for $site"
+        gatk SortVcf -I "$merged" -O "$sorted_merged" --SEQUENCE_DICTIONARY "$ref.dict"
+    fi
+done
+
 done
 EOF
 )
@@ -309,8 +353,8 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-vcf_path="~/Zymoproj/DEsamples/fung/gVCF"
-ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+vcf_path="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/gVCF"
+ref="/work_beegfs/suaph296/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 sites=("DO" "FU" "KA" "KO" "RA")
 
 for site in "${sites[@]}"; do
@@ -346,9 +390,9 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-gvcf_path="~/Zymoproj/DEsamples/fung/gVCF"
-vcf_path="~/Zymoproj/DEsamples/fung/VCF"
-ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+gvcf_path="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/gVCF"
+vcf_path="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/VCF"
+ref="/work_beegfs/suaph296/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 mkdir -p "$vcf_path"
 for vcf_file in $gvcf_path/*genotyped.vcf; do
     base_name=$(basename "$vcf_file" .genotyped.vcf)
@@ -376,8 +420,8 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-vcf_path="~/Zymoproj/DEsamples/fung/VCF"
-ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+vcf_path="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/VCF"
+ref="/work_beegfs/suaph296/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 
 for snp_vcf in $vcf_path/*.SNP.vcf; do
     base_name=$(basename "$snp_vcf" .SNP.vcf)
@@ -414,8 +458,8 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate var_call
 
-vcf_path="~/Zymoproj/DEsamples/fung/VCF"
-ref="~/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
+vcf_path="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/VCF"
+ref="/work_beegfs/suaph296/ref/Zymoseptoria_tritici.MG2.dna.toplevel.mt+.fa"
 
 for filtered_vcf in $vcf_path/*.SNP.corrected.qualityfilter.vcf; do
     base_name=$(basename "$filtered_vcf" .SNP.corrected.qualityfilter.vcf)
@@ -442,18 +486,15 @@ module load gcc12-env/12.1.0
 module load miniconda3/4.12.0
 conda activate samtools
 
-folder="~/Zymoproj/DEsamples/fung/VCF"
+folder="/work_beegfs/suaph296/Zymoproj/DEsamples/fung/VCF"
 german_fields=("DO" "FU" "KA" "KO" "RA")
 
 vcf_files=(
-    "$folder/Zt_CH.sub.qualityfilter2021.excl.vcf"
     "$folder/Zt_DO.qualityfilter2021.excl.vcf"
     "$folder/Zt_FU.qualityfilter2021.excl.vcf"
     "$folder/Zt_KA.qualityfilter2021.excl.vcf"
     "$folder/Zt_KO.qualityfilter2021.excl.vcf"
     "$folder/Zt_RA.qualityfilter2021.excl.vcf"
-    "$folder/Zt_UK.sub.qualityfilter2021.excl.vcf"
-    "$folder/Zt_US.sub.qualityfilter2021.excl.vcf"
 )
 
 for vcf in "${vcf_files[@]}"; do
@@ -474,7 +515,7 @@ for vcf in "${vcf_files[@]}"; do
         sub_part="_sub"
     fi
 
-    if [[ " ${german_fields[@]} " =/work_beegfs/suaph296 " ${field_code} " ]]; then
+    if [[ " ${german_fields[*]} " == *" $field_code "* ]]; then
         out_prefix="${folder}/Zt_${field_code}_strict"
     else
         out_prefix="${folder}/Zt_${field_code}${sub_part}_strict"
